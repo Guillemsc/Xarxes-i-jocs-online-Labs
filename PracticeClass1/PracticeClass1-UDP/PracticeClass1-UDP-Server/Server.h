@@ -41,6 +41,10 @@ private:
 	sockaddr_in address;
 
 	ConnectionType c_type;
+
+	SOCKET clientSocket;
+
+	struct sockaddr fromAddr;
 };
 
 #endif //_CLIENT_

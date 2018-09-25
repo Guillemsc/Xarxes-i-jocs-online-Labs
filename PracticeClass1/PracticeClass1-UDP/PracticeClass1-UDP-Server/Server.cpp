@@ -1,4 +1,6 @@
 #include "Server.h"
+#include <string>
+#include <iostream>
 
 Server::Server(u_short _port, ConnectionType type)
 {
@@ -17,6 +19,10 @@ bool Server::Start()
 	{
 		ret = false;
 	}
+	else
+	{
+		std::cout << "Server start" << std::endl;
+	}
 
 	if (ret)
 	{
@@ -24,41 +30,76 @@ bool Server::Start()
 		{
 		case ConnectionType::UDP:
 			s = socket(AF_INET, SOCK_DGRAM, 0);
+
+			if (s == INVALID_SOCKET)
+				ret = false;
+
 			break;
 		case ConnectionType::TCP:
 			s = socket(AF_INET, SOCK_STREAM, 0);
+
+			if (s == INVALID_SOCKET)
+				ret = false;
+
 			break;
 		}
 	}
 
 	if (ret)
 	{
+		// Address (server)
 		address.sin_family = AF_INET;
 		address.sin_port = htons(port);
-		const char* remoteAddrStr = "127.0.0.1";
-
 		address.sin_addr.S_un.S_addr = INADDR_ANY;
+
+		const char* remoteAddrStr = "127.0.0.1";
 	}
 
 	if (ret)
 	{
+		// Reuse address
 		int enable = 1;
 		iResult = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable, sizeof(int));
 
-		if (iResult != SOCKET_ERROR)
-		{
+		if (iResult == SOCKET_ERROR)
 			ret = false;
-		}
+		
 	}
 
 	if (ret)
 	{
+		// Bind
 		iResult = bind(s, (const struct sockaddr*)&address, sizeof(address));
 
-		if (iResult != SOCKET_ERROR)
-		{
+		if (iResult == SOCKET_ERROR)
 			ret = false;
-		}
+	}
+
+	if (ret && c_type == ConnectionType::TCP)
+	{
+		int listenRes = listen(s, 1);
+
+		if (listenRes == SOCKET_ERROR)
+			ret = false;
+	}
+
+	if (ret && c_type == ConnectionType::TCP)
+	{
+		std::cout << "Waiting accept" << std::endl;
+
+		struct sockaddr clientAddr;
+		int clientAddrLen = sizeof(clientAddr);
+		clientSocket = accept(s, (struct sockaddr*)&clientAddr, &clientAddrLen);
+
+		if (clientSocket == INVALID_SOCKET)
+			ret = false;
+		else
+			std::cout << "Accept done" << std::endl;
+	}
+
+	if (ret)
+	{
+		std::cout << "Waiting for client data... " << std::endl;;
 	}
 
 	return ret;
@@ -68,11 +109,60 @@ bool Server::Update()
 {
 	bool ret = true;
 
-	char* buf = new char[10];
+	// Input buffer
+	const int inBufferLen = 1300;
+	char inBuffer[inBufferLen];
 
 	int fromlen = sizeof(sockaddr);
 
-	recvfrom(s, buf, 10, 0, (struct sockaddr*)&address, &fromlen);
+	switch (c_type)
+	{
+	case ConnectionType::UDP:
+	{
+		int fromAddrLen = sizeof(fromAddr);
+
+		int bytes = recvfrom(s, inBuffer, inBufferLen, 0, &fromAddr, &fromAddrLen);
+		if (bytes >= 0)
+		{
+			std::string val = inBuffer;
+
+			if (val == "ping")
+			{
+				std::cout << "Data recieved " << std::endl;;
+
+				std::cout << "Server finished, press to close" << std::endl;;
+
+				system("pause");
+
+				ret = false;
+			}
+		}
+		break;
+	}
+	case ConnectionType::TCP:
+	{
+		int bytes = recv(clientSocket, inBuffer, inBufferLen, 0);
+
+		if (bytes > 0)
+		{
+			std::string val = inBuffer;
+
+			if (val == "ping")
+			{
+				std::cout << "Data recieved " << std::endl;;
+
+				std::cout << "Server finished, press to close" << std::endl;;
+
+				system("pause");
+
+				ret = false;
+			}
+		}
+		break;
+	}
+	default:
+		break;
+	}
 
 	return ret;
 }

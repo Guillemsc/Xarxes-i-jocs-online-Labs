@@ -12,7 +12,7 @@ int main(int argc, char **argv)
 
 	std::vector<Module*> modules;
 
-	Client* client = new Client(8000, ConnectionType::UDP);
+	Client* client = new Client(8000, ConnectionType::TCP);
 
 	modules.push_back(client);
 
